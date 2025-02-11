@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>LLM Chat</title>
+    <!-- Dark theme basic styling -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <!-- Highlight.js dark theme -->
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/monokai-sublime.min.css">
+    <!-- Include Showdown.js for markdown parsing -->
+    <script src="https://cdn.jsdelivr.net/npm/showdown@2.1.0/dist/showdown.min.js"></script>
+    <!-- Include Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+    <div id="content"></div>
+    <script>
+      // Initialize Showdown converter
+      const converter = new showdown.Converter({
+        tables: true,
+        simplifiedAutoLink: true,
+        strikethrough: true,
+        tasklists: true,
+        smartIndentationFix: true,
+        parseImgDimensions: true,
+        openLinksInNewWindow: true,
+        backslashEscapesHTML: true,
+        emoji: true,
+        extensions: [
+            {
+                type: 'output',
+                filter: function (text, converter, options) {
+                    // Add copy button to code blocks
+                    text = text.replace(/<pre><code([^>]*)>([\s\S]*?)<\/code><\/pre>/gi, function (match, attributes, code) {
+                        let escapedCode = code.replace(/"/g, '&quot;');
+                        escapedCode = escapedCode.replace(/\n/g, '\\n').replace(/\r/g, '\\r');
+                        const language = attributes.match(/language-([a-zA-Z]+)/)?.[1] || 'Code';
+                        return `<div style="position:relative"><div class="code-header">${language}<button class="copy-button" onclick="copyToClipboard(this, '${escapedCode}')">&#x2398;</button></div><pre><code${attributes}>${code}</code></pre></div>`;
+                    });
+
+                    // Add copy button to tables
+                    text = text.replace(/<table>([\s\S]*?)<\/table>/gi, function (match, tableContent) {
+                        // Extract table data
+                        const table = document.createElement('table');
+                        table.innerHTML = tableContent;
+                        const rows = Array.from(table.querySelectorAll('tr'));
+                        const tableData = rows.map(row => {
+                            const cells = Array.from(row.querySelectorAll('th, td'));
+                            return cells.map(cell => cell.textContent);
+                        });
+                        const escapedTable = JSON.stringify(tableData);
+                        return `<div style="position:relative"><div class="code-header">Table<button class="copy-button" onclick="copyToClipboard(this, ${escapedTable})">&#x2398;</button></div><table>${tableContent}</table></div>`;
+                    });
+                    return text;
+                }
+            }
+        ]
+      });
+      //document.getElementById('content').innerHTML = converter.makeHtml('# Showdown in the browser\n\nRendered by **showdown**.');
+    </script>
+
+    <div class="container">
+        <h2>LLM Chat</h2>
+        <div id="chat" class="chat-box">
+            <!-- Chat messages will appear here -->
+        </div>
+        <form id="chatForm">
+            <textarea id="message" placeholder="Type your message..."></textarea>
+            <br>
+            <button type="submit">Send</button>
+        </form>
+    </div>
+    
+    <!-- Include Highlight.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script>
+        // Copy to clipboard function
+        function copyToClipboard(button, data) {
+            let text;
+            if (Array.isArray(data)) { // Handle table data
+                text = data.map(row => row.join('\t')).join('\n'); // Convert to tab-separated
+            } else {
+                text = data; // Handle other text data
+            }
+
+            navigator.clipboard.writeText(text)
+                .then(() => {
+                    button.textContent = 'Copied!';
+                })
+                .catch(err => {
+                    console.error('Failed to copy text: ', err);
+                    button.textContent = 'Error';
+                });
+        }
+
+        const chatBox = document.getElementById('chat');
+        const form = document.getElementById('chatForm');
+        const messageInput = document.getElementById('message');
+
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const message = messageInput.value.trim();
+            if (!message) return;
+            
+            appendMessage('user', message);
+            messageInput.value = '';
+            startChatStream(message);
+        });
+
+        messageInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault(); // Prevent the default action (newline)
+                form.dispatchEvent(new Event('submit')); // Trigger the form submission
+            }
+        });
+
+        function appendMessage(sender, text) {
+            const msgDiv = document.createElement('div');
+            msgDiv.classList.add('message', sender);
+            // Using showdown.js to convert markdown to HTML.
+            msgDiv.innerHTML = converter.makeHtml(text);
+            chatBox.appendChild(msgDiv);
+            chatBox.scrollTop = chatBox.scrollHeight;
+            hljs.highlightAll();
+        }
+
+        // Add JSON parse safety function
+        function safeParse(str) {
+            try {
+                const parsed = JSON.parse(str);
+                return typeof parsed === 'object' ? parsed.content || str : str;
+            } catch (e) {
+                return str;
+            }
+        }
+
+        function startChatStream(message) {
+            const evtSource = new EventSource(`/chat?message=${encodeURIComponent(message)}`);
+            const botMsgDiv = document.createElement('div');
+            botMsgDiv.classList.add('message', 'bot');
+            chatBox.appendChild(botMsgDiv);
+            chatBox.scrollTop = chatBox.scrollHeight;
+            let botMessage = "";
+
+            // Add a span for the typing animation
+            const typingSpan = document.createElement('span');
+            typingSpan.classList.add('typing');
+            botMsgDiv.appendChild(typingSpan);
+            typingSpan.textContent = "Thinking..."; // Initial "Thinking..." message
+
+            evtSource.onmessage = function(e) {
+                if (e.data === "[DONE]") {
+                    evtSource.close();
+                    typingSpan.remove(); // Remove typing animation when done
+                    hljs.highlightAll();
+                } else {
+                    try {
+                        const data = JSON.parse(e.data);
+                        if (data.widget === 'chart') {
+                            // Handle chart data
+                            const chartType = data.type;
+                            const xAxis = data.x_axis;
+                            const yAxis = data.y_axis;
+                            const chatResponse = data.chat_response;
+
+                            // Create a container for the chart
+                            const chartContainer = document.createElement('div');
+                            chartContainer.classList.add('chart-container');
+
+                            // Display chat response
+                            const responseDiv = document.createElement('div');
+                            responseDiv.innerHTML = converter.makeHtml(chatResponse);
+                            chartContainer.appendChild(responseDiv);
+
+                            // Create chart canvas
+                            const chartCanvas = document.createElement('canvas');
+                            chartCanvas.id = 'myChart';
+                            chartCanvas.width = "50%";
+                            chartCanvas.height = "300";
+                            chartCanvas.style.display = 'block';
+                            chartContainer.appendChild(chartCanvas);
+
+                            // Render chart
+                            renderChart(chartType, xAxis, yAxis, chartCanvas);
+                            botMsgDiv.appendChild(chartContainer); // Append chart to bot message
+                            chatBox.scrollTop = chatBox.scrollHeight;
+                            hljs.highlightAll();
+                        } else {
+                            const content = safeParse(e.data);
+                            botMessage += String(content).replace(/~/g, "\n");
+                            // Force code block formatting if needed
+                            const formattedMessage = botMessage.replace(/```(python|javascript|json)([\s\S]*?)```/g, 
+                                (match, lang, code) => `\`\`\`${lang}\n${code.trim()}\n\`\`\``
+                            );
+                            
+                            
+                            botMsgDiv.innerHTML = converter.makeHtml(formattedMessage);
+                            chatBox.scrollTop = chatBox.scrollHeight;
+                            hljs.highlightAll();
+                        }
+                    } catch (err) {
+                        console.error('Parsing error:', err);
+                        try {
+                            const content = safeParse(e.data);
+                            botMessage += String(content).replace(/~/g, "\n");
+                            // Force code block formatting if needed
+                            const formattedMessage = botMessage.replace(/```(python|javascript|json)([\s\S]*?)```/g, 
+                                (match, lang, code) => `\`\`\`${lang}\n${code.trim()}\n\`\`\``
+                            );
+                            
+                            
+                            botMsgDiv.innerHTML = converter.makeHtml(formattedMessage);
+                            chatBox.scrollTop = chatBox.scrollHeight;
+                            hljs.highlightAll();
+                        } catch (err) {
+                            console.error('Parsing error:', err);
+                        }
+                    }
+                }
+            };
+            evtSource.onerror = function() {
+                evtSource.close();
+                botMsgDiv.innerHTML += "Error connecting to chat service.";
+                typingSpan.remove(); // Also remove typing animation on error
+            };
+        }
+
+        function renderChart(type, labels, data, chartCanvas) {
+            const ctx = chartCanvas.getContext('2d');
+
+            new Chart(ctx, {
+                type: type,
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Data',
+                        data: data,
+                        backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+
+</body>
+</html>
