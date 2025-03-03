@@ -1,0 +1,145 @@
+{
+  "tables": [
+    {
+      "name": "employees",
+      "description": "Contains employee information, including personal details, job position, and department.",
+      "business_function": "Human Resources",
+      "columns": ["id", "name", "position", "department", "salary", "hire_date", "manager_id", "email", "phone_number", "address", "city", "state", "zip_code", "country", "performance_rating"],
+      "foreign_keys": [
+        {"column": "manager_id", "reference_table": "employees", "reference_column": "id"},
+        {"column": "department_id", "reference_table": "departments", "reference_column": "id"}
+      ]
+    },
+    {
+      "name": "departments",
+      "description": "Stores information about departments within the organization, including location and budget.",
+      "business_function": "Organization Management",
+      "columns": ["id", "name", "location", "budget", "head_id", "description", "employee_count", "established_date", "contact_email", "contact_phone", "office_address", "office_city", "office_state", "office_zip", "office_country"],
+      "foreign_keys": [
+        {"column": "head_id", "reference_table": "employees", "reference_column": "id"}
+      ]
+    },
+    {
+      "name": "projects",
+      "description": "Details about projects undertaken by the organization, including timelines and budget.",
+      "business_function": "Project Management",
+      "columns": ["id", "name", "start_date", "end_date", "budget", "department_id", "status", "priority", "description", "team_size", "client_name", "client_contact", "project_manager_id", "created_date", "last_updated"],
+      "foreign_keys": [
+        {"column": "department_id", "reference_table": "departments", "reference_column": "id"},
+        {"column": "project_manager_id", "reference_table": "employees", "reference_column": "id"}
+      ]
+    },
+    {
+      "name": "employee_projects",
+      "description": "Links employees to projects and specifies their roles and allocated hours.",
+      "business_function": "Project Management",
+      "columns": ["employee_id", "project_id", "role", "hours_allocated", "start_date", "end_date", "task_description", "progress", "priority", "notes", "created_date", "last_updated", "approved_by", "approval_date", "status"],
+      "foreign_keys": [
+        {"column": "employee_id", "reference_table": "employees", "reference_column": "id"},
+        {"column": "project_id", "reference_table": "projects", "reference_column": "id"}
+      ]
+    },
+    {
+      "name": "customers",
+      "description": "Information about the company's customers, including contact details and sales representative.",
+      "business_function": "Sales",
+      "columns": ["id", "name", "email", "phone_number", "address", "city", "state", "zip_code", "country", "registration_date", "customer_type", "sales_representative_id", "notes", "last_order_date", "total_orders"],
+      "foreign_keys": [
+        {"column": "sales_representative_id", "reference_table": "employees", "reference_column": "id"}
+      ]
+    },
+    {
+      "name": "orders",
+      "description": "Details of customer orders, including dates, amounts, and shipping information.",
+      "business_function": "Sales",
+      "columns": ["id", "customer_id", "order_date", "total_amount", "shipping_address", "shipping_city", "shipping_state", "shipping_zip", "shipping_country", "payment_method", "order_status", "delivery_date", "tracking_number", "sales_tax", "discount_applied"],
+      "foreign_keys": [
+        {"column": "customer_id", "reference_table": "customers", "reference_column": "id"}
+      ]
+    },
+    {
+      "name": "products",
+      "description": "Information about products sold by the company, including pricing and stock levels.",
+      "business_function": "Inventory Management",
+      "columns": ["id", "name", "description", "category", "price", "stock_quantity", "supplier_id", "weight", "dimensions", "color", "material", "release_date", "discontinued_date", "average_rating", "total_sales"],
+      "foreign_keys": [
+        {"column": "supplier_id", "reference_table": "suppliers", "reference_column": "id"}
+      ]
+    },
+    {
+      "name": "suppliers",
+      "description": "Details about the company's suppliers, including contact information and payment terms.",
+      "business_function": "Procurement",
+      "columns": ["id", "name", "contact_name", "contact_email", "contact_phone", "address", "city", "state", "zip_code", "country", "website", "notes", "account_number", "payment_terms", "contract_expiry"],
+      "foreign_keys": []
+    },
+    {
+      "name": "sales",
+      "description": "Records of sales transactions, linking products, customers, and sales personnel.",
+      "business_function": "Sales",
+      "columns": ["id", "product_id", "customer_id", "sales_date", "quantity", "unit_price", "total_price", "sales_person_id", "discount", "tax", "shipping_cost", "payment_status", "delivery_status", "return_status", "notes"],
+      "foreign_keys": [
+        {"column": "product_id", "reference_table": "products", "reference_column": "id"},
+        {"column": "customer_id", "reference_table": "customers", "reference_column": "id"},
+        {"column": "sales_person_id", "reference_table": "employees", "reference_column": "id"}
+      ]
+    },
+    {
+      "name": "inventory",
+      "description": "Tracks inventory levels, reorder points, and warehouse locations for products.",
+      "business_function": "Inventory Management",
+      "columns": ["id", "product_id", "warehouse_id", "quantity_on_hand", "reorder_level", "reorder_quantity", "last_received_date", "last_shipped_date", "average_daily_usage", "lead_time", "cost_per_unit", "expiration_date", "location_in_warehouse", "notes", "status"],
+      "foreign_keys": [
+        {"column": "product_id", "reference_table": "products", "reference_column": "id"},
+        {"column": "warehouse_id", "reference_table": "warehouses", "reference_column": "id"}
+      ]
+    },
+    {
+      "name": "warehouses",
+      "description": "Information about warehouse locations, capacity, and management.",
+      "business_function": "Inventory Management",
+      "columns": ["id", "name", "location", "capacity", "manager_id", "contact_email", "contact_phone", "address", "city", "state", "zip_code", "country", "notes", "established_date", "security_level"],
+      "foreign_keys": [
+        {"column": "manager_id", "reference_table": "employees", "reference_column": "id"}
+      ]
+    },
+    {
+      "name": "finance",
+      "description": "Records of financial transactions, including accounts and transaction types.",
+      "business_function": "Finance",
+      "columns": ["id", "transaction_date", "account_id", "description", "amount", "transaction_type", "category", "notes", "reference_number", "payment_method", "approval_status", "approved_by", "approval_date", "reconciled", "reconciled_date"],
+      "foreign_keys": [
+        {"column": "account_id", "reference_table": "accounts", "reference_column": "id"}
+      ]
+    },
+    {
+      "name": "accounts",
+      "description": "Details about financial accounts, including balances and account managers.",
+      "business_function": "Finance",
+      "columns": ["id", "account_name", "account_type", "balance", "currency", "opening_date", "closing_date", "interest_rate", "credit_limit", "payment_terms", "notes", "account_manager_id", "created_date", "last_updated", "status"],
+      "foreign_keys": [
+        {"column": "account_manager_id", "reference_table": "employees", "reference_column": "id"}
+      ]
+    },
+    {
+      "name": "hr_policies",
+      "description": "Information about human resources policies, including effective dates and approval status.",
+      "business_function": "Human Resources",
+      "columns": ["id", "policy_name", "description", "effective_date", "expiry_date", "department_id", "policy_type", "approval_status", "approved_by", "approval_date", "notes", "created_date", "last_updated", "version", "category"],
+      "foreign_keys": [
+        {"column": "department_id", "reference_table": "departments", "reference_column": "id"},
+        {"column": "approved_by", "reference_table": "employees", "reference_column": "id"}
+      ]
+    },
+    {
+      "name": "training_programs",
+      "description": "Details about training programs offered to employees, including schedules and instructors.",
+      "business_function": "Human Resources",
+      "columns": ["id", "program_name", "description", "start_date", "end_date", "department_id", "instructor_id", "capacity", "location", "cost", "status", "notes", "created_date", "last_updated", "category"],
+      "foreign_keys": [
+        {"column": "department_id", "reference_table": "departments", "reference_column": "id"},
+        {"column": "instructor_id", "reference_table": "employees", "reference_column": "id"}
+      ]
+    }
+  ]
+}
